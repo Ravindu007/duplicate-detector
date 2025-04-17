@@ -45,16 +45,16 @@ jobs:
       - name: Download models from Google Drive
         run: |
           mkdir -p models
-          gdown https://drive.google.com/uc?id=1dMMRcnWSGn4RtQkKVcExQozi7b3Q9ycZ -O models/best_traditional_model.h5
-          gdown https://drive.google.com/uc?id=1q5dML2YECAPz07YR5AWe9e2Bv9hU1_Ef -O models/meta_model.joblib
-          gdown https://drive.google.com/uc?id=1xaa5jGYtLpHZ5cuCZEbRRLO-pBx7Ubir -O models/scaler.joblib
-          gdown https://drive.google.com/uc?id=1e4l2FaDxl2nSHZVXy8lAwZT71kAbmbT5 -O models/tfidf_title.joblib
-          gdown https://drive.google.com/uc?id=1a9EJsdYADLuSID8UoVHnMlqDcEqmxqoV -O models/tfidf_body.joblib
-          gdown https://drive.google.com/uc?id=1BFnwOEfVkf6cfQj3ArrizHT0wm9-tztj -O models/w2v_title.model
-          gdown https://drive.google.com/uc?id=1JQSvj294nlC9lR03C_Nt24S_GQRY6K0W -O models/w2v_body.model
-          gdown https://drive.google.com/uc?id=1b6K0Ov0ekyeoNMeE__SfRDe-oFL6xAqj -O models/best_model_name.txt
-          gdown https://drive.google.com/uc?id=1JzsOc7R3Jh7GpBtYQXR9ZcLNCHZhxlrV -O models/codebert.zip
-          unzip models/codebert.zip -d models/fine_tuned_codebert_model
+          gdown https://drive.google.com/uc?id=1dMMRcnWSGn4RtQkKVcExQozi7b3Q9ycZ -O models/best_traditional_model.h5 || { echo "Failed to download best_traditional_model.h5"; exit 1; }
+          gdown https://drive.google.com/uc?id=1q5dML2YECAPz07YR5AWe9e2Bv9hU1_Ef -O models/meta_model.joblib || { echo "Failed to download meta_model.joblib"; exit 1; }
+          gdown https://drive.google.com/uc?id=1xaa5jGYtLpHZ5cuCZEbRRLO-pBx7Ubir -O models/scaler.joblib || { echo "Failed to download scaler.joblib"; exit 1; }
+          gdown https://drive.google.com/uc?id=1e4l2FaDxl2nSHZVXy8lAwZT71kAbmbT5 -O models/tfidf_title.joblib || { echo "Failed to download tfidf_title.joblib"; exit 1; }
+          gdown https://drive.google.com/uc?id=1a9EJsdYADLuSID8UoVHnMlqDcEqmxqoV -O models/tfidf_body.joblib || { echo "Failed to download tfidf_body.joblib"; exit 1; }
+          gdown https://drive.google.com/uc?id=1BFnwOEfVkf6cfQj3ArrizHT0wm9-tztj -O models/w2v_title.model || { echo "Failed to download w2v_title.model"; exit 1; }
+          gdown https://drive.google.com/uc?id=1JQSvj294nlC9lR03C_Nt24S_GQRY6K0W -O models/w2v_body.model || { echo "Failed to download w2v_body.model"; exit 1; }
+          gdown https://drive.google.com/uc?id=1b6K0Ov0ekyeoNMeE__SfRDe-oFL6xAqj -O models/best_model_name.txt || { echo "Failed to download best_model_name.txt"; exit 1; }
+          gdown https://drive.google.com/uc?id=1JzsOc7R3Jh7GpBtYQXR9ZcLNCHZhxlrV -O models/codebert.zip || { echo "Failed to download codebert.zip"; exit 1; }
+          unzip -o models/codebert.zip -d models/fine_tuned_codebert_model || { echo "Failed to unzip codebert.zip"; exit 1; }
 
       # Verify model files
       - name: Verify model files
