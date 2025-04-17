@@ -8,27 +8,23 @@ jobs:
   detect-duplicates:
     runs-on: ubuntu-latest
     permissions:
-      issues: write  # Needed to comment on issues
-      contents: write  # Needed to commit files
+      issues: write
+      contents: write
 
     steps:
-      # Checkout the repository
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Set up Python environment
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
 
-      # Install system dependencies
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libhdf5-dev
 
-      # Cache Python dependencies
       - name: Cache Python dependencies
         uses: actions/cache@v3
         with:
@@ -37,19 +33,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      # Install Python dependencies
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pandas==1.5.3 numpy==1.23.5 torch==1.12.1 transformers==4.32.0 sentence-transformers==2.3.0 gensim==4.3.0 scikit-learn==1.2.0 tensorflow==2.15.0 joblib==1.2.0 requests==2.28.1 beautifulsoup4==4.11.1 nltk==3.7 google-auth==2.17.3 google-api-python-client==2.86.0 huggingface_hub==0.15.1 tf-keras==2.15.0 scipy==1.10.1
-
-      # Verify TensorFlow version
+          pip install pandas==1.5.3 numpy==1.23.5 torch==1.12.1 transformers==4.32.0 sentence-transformers==2.3.0 gensim==4.3.2 scikit-learn==1.6.1 tensorflow==2.15.0 joblib==1.2.0 requests==2.28.1 beautifulsoup4==4.11.1 nltk==3.7 google-auth==2.17.3 google-api-python-client==2.86.0 huggingface_hub==0.15.1 tf-keras==2.15.0 scipy==1.10.1
+          
       - name: Verify TensorFlow version
         run: |
           python -c "import tensorflow as tf; print('TensorFlow Version:', tf.__version__)"
         continue-on-error: false
 
-      # Debug GOOGLE_CREDENTIALS
       - name: Debug GOOGLE_CREDENTIALS
         run: |
           echo "GOOGLE_CREDENTIALS length: ${#GOOGLE_CREDENTIALS}"
@@ -62,13 +55,11 @@ jobs:
         env:
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
 
-      # Download NLTK resources
       - name: Download NLTK resources
         run: |
           python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords'); nltk.download('wordnet'); nltk.download('punkt_tab')"
         continue-on-error: false
 
-      # Run the duplicate detection script
       - name: Run duplicate detection
         run: |
           python detect_duplicates.py
@@ -76,7 +67,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
 
-      # Comment on the issue with results
       - name: Comment on issue
         if: success()
         run: |
@@ -90,7 +80,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Upload the output CSV as an artifact
       - name: Upload duplicate_ranking.csv
         if: success()
         uses: actions/upload-artifact@v4
