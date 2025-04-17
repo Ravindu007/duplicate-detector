@@ -177,7 +177,7 @@ new_body_raw = minimal_preprocess(new_body)
 # Fetch issues
 repo = os.environ['GITHUB_REPOSITORY']
 url = f"https://api.github.com/repos/{repo}/issues"
-params = {"state": "all", "per_page": 10}
+params = {"state": "all", "per_page": 25}
 headers = {'Authorization': f'token {os.environ["GITHUB_TOKEN"]}'}
 try:
     response = requests.get(url, headers=headers, params=params)
