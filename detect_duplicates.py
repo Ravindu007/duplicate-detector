@@ -17,9 +17,13 @@ import nltk
 import os
 import json
 import io
+import logging
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Suppress TensorFlow GPU warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -36,13 +40,13 @@ os.makedirs('models', exist_ok=True)
 # Load Google Service Account credentials
 credentials_json = os.environ.get('GOOGLE_CREDENTIALS')
 if not credentials_json:
-    print("Error: GOOGLE_CREDENTIALS environment variable is not set or empty")
+    logging.error("GOOGLE_CREDENTIALS environment variable is not set or empty")
     exit(1)
 
 try:
     json.loads(credentials_json)
 except json.JSONDecodeError as e:
-    print(f"Error: GOOGLE_CREDENTIALS contains invalid JSON: {e}")
+    logging.error(f"GOOGLE_CREDENTIALS contains invalid JSON: {e}")
     exit(1)
 
 with open('credentials.json', 'w') as f:
@@ -53,7 +57,7 @@ try:
     creds = Credentials.from_service_account_file('credentials.json')
     drive_service = build('drive', 'v3', credentials=creds)
 except Exception as e:
-    print(f"Error loading Google Service Account credentials: {e}")
+    logging.error(f"Error loading Google Service Account credentials: {e}")
     exit(1)
 
 # File IDs
@@ -72,31 +76,32 @@ file_ids = {
 # Download files
 for filename, file_id in file_ids.items():
     try:
-        print(f"Downloading {filename}...")
+        logging.info(f"Downloading {filename}...")
         request = drive_service.files().get_media(fileId=file_id)
         fh = io.FileIO(f'models/{filename}', 'wb')
         downloader = MediaIoBaseDownload(fh, request)
         done = False
         while not done:
             status, done = downloader.next_chunk()
-            print(f"Download {int(status.progress() * 100)}%")
+            logging.info(f"Download {int(status.progress() * 100)}%")
         fh.close()
     except Exception as e:
-        print(f"Error downloading {filename}: {e}")
+        logging.error(f"Error downloading {filename}: {e}")
         exit(1)
 
 # Unzip codebert.zip
 try:
-    print("Unzipping codebert.zip...")
+    logging.info("Unzipping codebert.zip...")
     os.system('unzip -o models/codebert.zip -d models/fine_tuned_codebert_model')
     if not os.path.exists('models/fine_tuned_codebert_model'):
         raise FileNotFoundError("Failed to unzip fine_tuned_codebert_model")
 except Exception as e:
-    print(f"Error unzipping codebert.zip: {e}")
+    logging.error(f"Error unzipping codebert.zip: {e}")
     exit(1)
 
 # Load saved models and components
 try:
+    logging.info("Loading models...")
     with open('models/best_model_name.txt', 'r') as f:
         best_model_name = f.read().strip()
     best_traditional_model = tf.keras.models.load_model('models/best_traditional_model.h5')
@@ -104,13 +109,15 @@ try:
     scaler = joblib.load('models/scaler.joblib')
     tfidf_title = joblib.load('models/tfidf_title.joblib')
     tfidf_body = joblib.load('models/tfidf_body.joblib')
+    logging.info("Loading Word2Vec title model...")
     w2v_title = Word2Vec.load('models/w2v_title.model')
+    logging.info("Loading Word2Vec body model...")
     w2v_body = Word2Vec.load('models/w2v_body.model')
     sbert_model = SentenceTransformer('all-MiniLM-L6-v2')
     tokenizer = AutoTokenizer.from_pretrained('microsoft/codebert-base')
     codebert_model = AutoModelForSequenceClassification.from_pretrained('models/fine_tuned_codebert_model')
 except Exception as e:
-    print(f"Error loading models: {e}")
+    logging.error(f"Error loading models: {e}")
     exit(1)
 
 # Preprocessing functions
@@ -137,7 +144,7 @@ try:
     new_title = event_data['issue']['title'] or ""
     new_body = event_data['issue']['body'] or ""
 except KeyError as e:
-    print(f"Error reading issue data: {e}")
+    logging.error(f"Error reading issue data: {e}")
     exit(1)
 
 # Preprocess the new issue
@@ -156,7 +163,7 @@ try:
     response.raise_for_status()
     issues = response.json()
 except requests.RequestException as e:
-    print(f"Error fetching issues: {e}")
+    logging.error(f"Error fetching issues: {e}")
     exit(1)
 
 # Compute features
@@ -225,7 +232,7 @@ for issue in issues:
         pair_features = compute_features(pair_df)
         pair_features_scaled = scaler.transform(pair_features)
     except Exception as e:
-        print(f"Error computing features for issue #{issue_number}: {e}")
+        logging.error(f"Error computing features for issue #{issue_number}: {e}")
         continue
 
     try:
@@ -240,7 +247,7 @@ for issue in issues:
         else:
             raise ValueError(f"Unsupported model: {best_model_name}")
     except Exception as e:
-        print(f"Error predicting with traditional model for issue #{issue_number}: {e}")
+        logging.error(f"Error predicting with traditional model for issue #{issue_number}: {e}")
         continue
 
     text = f"[CLS] {new_title_raw} [SEP] {new_body_raw} [SEP] {fetched_title_raw} [SEP] {fetched_body_raw}"
@@ -251,14 +258,14 @@ for issue in issues:
             logits = outputs.logits
             pair_codebert_pred_prob = torch.softmax(logits, dim=1)[0, 1].item()
     except Exception as e:
-        print(f"Error predicting with CodeBERT for issue #{issue_number}: {e}")
+        logging.error(f"Error predicting with CodeBERT for issue #{issue_number}: {e}")
         continue
 
     hybrid_features = np.array([[traditional_pred_prob, pair_codebert_pred_prob]])
     try:
         hybrid_pred_prob = meta_model.predict_proba(hybrid_features)[:, 1][0]
     except Exception as e:
-        print(f"Error predicting with meta-model for issue #{issue_number}: {e}")
+        logging.error(f"Error predicting with meta-model for issue #{issue_number}: {e}")
         continue
 
     results.append({
@@ -274,13 +281,13 @@ for issue in issues:
 results_df = pd.DataFrame(results)
 if not results_df.empty:
     results_df = results_df.sort_values(by='hybrid_prob', ascending=False)
-    print("New Issue:")
-    print(f"Title: {new_title}")
-    print(f"Body: {new_body}\n")
-    print("Top 5 potential duplicates (ranked by hybrid probability):")
-    print(results_df.head(5)[['issue_number', 'fetched_title', 'traditional_prob', 'codebert_prob', 'hybrid_prob']])
+    logging.info("New Issue:")
+    logging.info(f"Title: {new_title}")
+    logging.info(f"Body: {new_body}\n")
+    logging.info("Top 5 potential duplicates (ranked by hybrid probability):")
+    logging.info(results_df.head(5)[['issue_number', 'fetched_title', 'traditional_prob', 'codebert_prob', 'hybrid_prob']].to_string())
     results_df.to_csv('duplicate_ranking.csv', index=False)
-    print("\nFull ranking saved to 'duplicate_ranking.csv'")
+    logging.info("\nFull ranking saved to 'duplicate_ranking.csv'")
 else:
-    print("No duplicate issues detected.")
+    logging.info("No duplicate issues detected.")
     pd.DataFrame().to_csv('duplicate_ranking.csv', index=False)
