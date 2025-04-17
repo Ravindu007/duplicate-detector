@@ -1,0 +1,100 @@
+name: Duplicate GitHub Issue Detection
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  detect-duplicates:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write  # Needed to comment on issues
+      contents: write  # Needed to commit files
+
+    steps:
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Set up Python environment
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      # Install system dependencies
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libhdf5-dev
+
+      # Install Python dependencies
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas==1.5.3 numpy==1.23.5 torch==1.12.1 transformers==4.24.0 sentence-transformers==2.2.2 gensim==4.3.0 scikit-learn==1.2.0 tensorflow==2.10.0 joblib==1.2.0 requests==2.28.1 beautifulsoup4==4.11.1 nltk==3.7 gdown==4.7.1
+        continue-on-error: false
+
+      # Download NLTK resources
+      - name: Download NLTK resources
+        run: |
+          python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords'); nltk.download('wordnet'); nltk.download('punkt_tab')"
+        continue-on-error: false
+
+      # Download models from Google Drive
+      - name: Download models from Google Drive
+        run: |
+          mkdir -p models
+          gdown https://drive.google.com/uc?id=1dMMRcnWSGn4RtQkKVcExQozi7b3Q9ycZ -O models/best_traditional_model.h5
+          gdown https://drive.google.com/uc?id=1q5dML2YECAPz07YR5AWe9e2Bv9hU1_Ef -O models/meta_model.joblib
+          gdown https://drive.google.com/uc?id=1xaa5jGYtLpHZ5cuCZEbRRLO-pBx7Ubir -O models/scaler.joblib
+          gdown https://drive.google.com/uc?id=1e4l2FaDxl2nSHZVXy8lAwZT71kAbmbT5 -O models/tfidf_title.joblib
+          gdown https://drive.google.com/uc?id=1a9EJsdYADLuSID8UoVHnMlqDcEqmxqoV -O models/tfidf_body.joblib
+          gdown https://drive.google.com/uc?id=1BFnwOEfVkf6cfQj3ArrizHT0wm9-tztj -O models/w2v_title.model
+          gdown https://drive.google.com/uc?id=1JQSvj294nlC9lR03C_Nt24S_GQRY6K0W -O models/w2v_body.model
+          gdown https://drive.google.com/uc?id=1b6K0Ov0ekyeoNMeE__SfRDe-oFL6xAqj -O models/best_model_name.txt
+          gdown https://drive.google.com/uc?id=1JzsOc7R3Jh7GpBtYQXR9ZcLNCHZhxlrV -O models/codebert.zip
+          unzip models/codebert.zip -d models/fine_tuned_codebert_model
+
+      # Verify model files
+      - name: Verify model files
+        run: |
+          ls -l models/
+          if [ ! -f models/best_traditional_model.h5 ]; then echo "Missing best_traditional_model.h5"; exit 1; fi
+          if [ ! -f models/meta_model.joblib ]; then echo "Missing meta_model.joblib"; exit 1; fi
+          if [ ! -f models/scaler.joblib ]; then echo "Missing scaler.joblib"; exit 1; fi
+          if [ ! -f models/tfidf_title.joblib ]; then echo "Missing tfidf_title.joblib"; exit 1; fi
+          if [ ! -f models/tfidf_body.joblib ]; then echo "Missing tfidf_body.joblib"; exit 1; fi
+          if [ ! -f models/w2v_title.model ]; then echo "Missing w2v_title.model"; exit 1; fi
+          if [ ! -f models/w2v_body.model ]; then echo "Missing w2v_body.model"; exit 1; fi
+          if [ ! -f models/best_model_name.txt ]; then echo "Missing best_model_name.txt"; exit 1; fi
+          if [ ! -d models/fine_tuned_codebert_model ]; then echo "Missing fine_tuned_codebert_model"; exit 1; fi
+
+      # Run the duplicate detection script
+      - name: Run duplicate detection
+        run: |
+          python detect_duplicates.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Comment on the issue with results
+      - name: Comment on issue
+        if: success()
+        run: |
+          COMMENT_BODY=$(python -c "import pandas as pd; df = pd.read_csv('duplicate_ranking.csv'); print('Top 5 potential duplicates:\n' + df.head(5)[['issue_number', 'fetched_title', 'hybrid_prob']].to_markdown(index=False))")
+          ISSUE_NUMBER=${{ github.event.issue.number }}
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments \
+            -d "{\"body\": \"$COMMENT_BODY\"}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Upload the output CSV as an artifact
+      - name: Upload duplicate_ranking.csv
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: duplicate_ranking
+          path: duplicate_ranking.csv
