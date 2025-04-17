@@ -163,6 +163,7 @@ try:
         event_data = json.load(f)
     new_title = event_data['issue']['title'] or ""
     new_body = event_data['issue']['body'] or ""
+    new_issue_number = event_data['issue']['number']  # Get the new issue number
 except KeyError as e:
     logging.error(f"Error reading issue data: {e}")
     exit(1)
@@ -185,6 +186,9 @@ try:
 except requests.RequestException as e:
     logging.error(f"Error fetching issues: {e}")
     exit(1)
+
+# Filter out the new issue
+issues = [issue for issue in issues if issue.get('number') != new_issue_number]
 
 # Compute features
 def compute_features(pair_df):
@@ -301,6 +305,8 @@ for issue in issues:
 results_df = pd.DataFrame(results)
 if not results_df.empty:
     results_df = results_df.sort_values(by='hybrid_prob', ascending=False)
+    # Sanitize fetched_title to escape special characters
+    results_df['fetched_title'] = results_df['fetched_title'].str.replace('"', '\\"').str.replace('\n', ' ').str.replace('\r', ' ')
     logging.info("New Issue:")
     logging.info(f"Title: {new_title}")
     logging.info(f"Body: {new_body}\n")
