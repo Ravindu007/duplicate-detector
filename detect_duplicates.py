@@ -44,6 +44,8 @@ for url, output_path in model_files:
     try:
         print(f"Downloading {output_path}...")
         gdown.download(url, output_path, quiet=False)
+        if not os.path.exists(output_path):
+            raise FileNotFoundError(f"File {output_path} not found after download attempt")
     except Exception as e:
         print(f"Error downloading {output_path}: {e}")
         exit(1)
@@ -52,6 +54,8 @@ for url, output_path in model_files:
 try:
     print("Unzipping codebert.zip...")
     os.system('unzip -o models/codebert.zip -d models/fine_tuned_codebert_model')
+    if not os.path.exists('models/fine_tuned_codebert_model'):
+        raise FileNotFoundError("Failed to unzip fine_tuned_codebert_model")
 except Exception as e:
     print(f"Error unzipping codebert.zip: {e}")
     exit(1)
@@ -115,46 +119,6 @@ try:
 except requests.RequestException as e:
     print(f"Error fetching issues: {e}")
     exit(1)
-
-# Function to compute features for a pair
-def compute_features(pair_df):
-    features = []
-    for _, row in pair_df.iterrows():
-        tfidf_t1 = tfidf_title.transform([row['Original Issue Title_clean']]).toarray()
-        tfidf_t2 = tfidf_title.transform([row['Duplicate Issue Title_clean']]).toarray()
-        tfidf_b1 = tfidf_body.transform([row['Original Issue Body_clean']]).toarray()
-        tfidf_b2 = tfidf_body.transform([row['Duplicate Issue Body_clean']]).toarray()
-        tfidf_title_sim = cosine_similarity(tfidf_t1, tfidf_t2)[0][0]
-        tfidf_body_sim = cosine_similarity(tfidf_b1, tfidf_b2)[0][0]
-
-        w2v_t1 = get_w2v_embedding(row['Original Issue Title_clean'].split(), w2v_title)
-        w2v_t2 = get_w2v_embedding(row['Duplicate Issue Title_clean'].split(), w2v_title)
-        w2v_b1 = get_w2v_embedding(row['Original Issue Body_clean'].split(), w2v_body)
-        w2v_b2 = get_w2v_embedding(row['Duplicate Issue Body_clean'].split(), w2v_body)
-        w2v_title_sim = cosine_similarity([w2v_t1], [w2v_t2])[0][0] if np.any(w2v_t1) and np.any(w2v_t2) else 0
-        w2v_body_sim = cosine_similarity([w2v_b1], [w2v_b2])[0][0] if np.any(w2v_b1) and np.any(w2v_b2) else 0
-
-        sbert_t1 = sbert_model.encode(row['Original Issue Title_clean'])
-        sbert_t2 = sbert_model.encode(row['Duplicate Issue Title_clean'])
-        sbert_b1 = sbert_model.encode(row['Original Issue Body_clean'])
-        sbert_b2 = sbert_model.encode(row['Duplicate Issue Body_clean'])
-        sbert_title_sim = cosine_similarity([sbert_t1], [sbert_t2])[0][0]
-        sbert_body_sim = cosine_similarity([sbert_b1], [sbert_b2])[0][0]
-
-        t1_tokens = set(row['Original Issue Title_clean'].split())
-        t2_tokens = set(row['Duplicate Issue Title_clean'].split())
-        b1_tokens = set(row['Original Issue Body_clean'].split())
-        b2_tokens = set(row['Duplicate Issue Body_clean'].split())
-        title_overlap = len(t1_tokens & t2_tokens) / len(t1_tokens | t2_tokens) if t1_tokens or t2_tokens else 0
-        body_overlap = len(b1_tokens & b2_tokens) / len(b1_tokens | b2_tokens) if b1_tokens or b2_tokens else 0
-
-        features.append([tfidf_title_sim, tfidf_body_sim, w2v_title_sim, w2v_body_sim,
-                         sbert_title_sim, sbert_body_sim, title_overlap, body_overlap])
-    return np.array(features)
-
-def get_w2v_embedding(tokens, model):
-    vectors = [model.wv[token] for token in tokens if token in model.wv]
-    return np.mean(vectors, axis=0) if vectors else np.zeros(100)
 
 # Process each fetched issue
 results = []
