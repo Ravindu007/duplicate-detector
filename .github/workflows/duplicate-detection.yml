@@ -31,6 +31,8 @@ jobs:
           python -m pip install --upgrade pip
           # Install numpy first with version compatible with TF 2.10.0
           pip install numpy==1.23.5
+          # Install protobuf first to ensure compatibility
+          pip install protobuf==3.20.0
           # Install older version of TensorFlow (2.10.0) which is likely compatible with the saved model
           pip install tensorflow==2.10.0
           # Then install other dependencies
