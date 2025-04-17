@@ -16,4 +16,4 @@ huggingface_hub==0.15.1
 tf-keras==2.15.0
 scipy==1.13.1
 smart-open==7.1.0
-wrapt==1.17.2
+wrapt==1.14.1
