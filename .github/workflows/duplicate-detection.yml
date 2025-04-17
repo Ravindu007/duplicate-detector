@@ -74,8 +74,8 @@ jobs:
         if: success()
         run: |
           set -e
-          # Generate escaped JSON payload
-          python -c "import pandas as pd, json; df = pd.read_csv('duplicate_ranking.csv'); body = 'Top 5 potential duplicates:\\n' + df.head(5)[['issue_number', 'fetched_title', 'hybrid_prob']].to_markdown(index=False); print(json.dumps({'body': body}))" > comment.json
+          # Generate DataFrame with issue_number as Markdown links
+          python -c "import pandas as pd, json; df = pd.read_csv('duplicate_ranking.csv'); df['issue_number'] = df['issue_number'].apply(lambda x: f'[{x}](https://github.com/${{ github.repository }}/issues/{x})'); body = 'Top 5 potential duplicates:\\n' + df.head(5)[['issue_number', 'fetched_title', 'hybrid_prob']].to_markdown(index=False); print(json.dumps({'body': body}))" > comment.json
           cat comment.json  # Log the JSON for debugging
           ISSUE_NUMBER=${{ github.event.issue.number }}
           curl -X POST \
