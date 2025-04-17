@@ -47,7 +47,7 @@ jobs:
           pip install google-auth==2.17.3
           pip install google-api-python-client==2.86.0
           pip install huggingface_hub==0.15.1
-          pip install tf-keras==2.10.0
+          # No need for tf-keras when using TF 2.10.0 as Keras is integrated
           pip install scipy>=1.7.3
 
       # Create and patch the detection script with error handling
@@ -69,8 +69,16 @@ jobs:
                       return tf.keras.models.load_model(model_path, compile=False)
                   except Exception as e2:
                       print(f"Loading with compile=False failed: {e2}")
-                      # If the model still can't be loaded, raise the original error
-                      raise e
+                      try:
+                          # Try loading with direct optimizer specification
+                          return tf.keras.models.load_model(
+                              model_path, 
+                              custom_objects={'optimizer': tf.keras.optimizers.Adam()}
+                          )
+                      except Exception as e3:
+                          print(f"Loading with custom_objects failed: {e3}")
+                          # If all attempts fail, raise the original error
+                          raise e
           EOF
           
           # Insert the import statement at the beginning of the detection script
