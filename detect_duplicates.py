@@ -28,16 +28,16 @@ nltk.download('punkt_tab')
 os.makedirs('models', exist_ok=True)
 
 # Download models from Google Drive
-gdown.download('https://drive.google.com/uc?id=YOUR_FILE_ID_1', 'models/best_traditional_model.h5', quiet=False)
-gdown.download('https://drive.google.com/uc?id=YOUR_FILE_ID_2', 'models/meta_model.joblib', quiet=False)
-gdown.download('https://drive.google.com/uc?id=YOUR_FILE_ID_3', 'models/scaler.joblib', quiet=False)
-gdown.download('https://drive.google.com/uc?id=YOUR_FILE_ID_4', 'models/tfidf_title.joblib', quiet=False)
-gdown.download('https://drive.google.com/uc?id=YOUR_FILE_ID_5', 'models/tfidf_body.joblib', quiet=False)
-gdown.download('https://drive.google.com/uc?id=YOUR_FILE_ID_6', 'models/w2v_title.model', quiet=False)
-gdown.download('https://drive.google.com/uc?id=YOUR_FILE_ID_7', 'models/w2v_body.model', quiet=False)
-gdown.download('https://drive.google.com/uc?id=YOUR_FILE_ID_8', 'models/best_model_name.txt', quiet=False)
+gdown.download('https://drive.google.com/uc?id=1dMMRcnWSGn4RtQkKVcExQozi7b3Q9ycZ', 'models/best_traditional_model.h5', quiet=False)
+gdown.download('https://drive.google.com/uc?id=1q5dML2YECAPz07YR5AWe9e2Bv9hU1_Ef', 'models/meta_model.joblib', quiet=False)
+gdown.download('https://drive.google.com/uc?id=1xaa5jGYtLpHZ5cuCZEbRRLO-pBx7Ubir', 'models/scaler.joblib', quiet=False)
+gdown.download('https://drive.google.com/uc?id=1e4l2FaDxl2nSHZVXy8lAwZT71kAbmbT5', 'models/tfidf_title.joblib', quiet=False)
+gdown.download('https://drive.google.com/uc?id=1a9EJsdYADLuSID8UoVHnMlqDcEqmxqoV', 'models/tfidf_body.joblib', quiet=False)
+gdown.download('https://drive.google.com/uc?id=1BFnwOEfVkf6cfQj3ArrizHT0wm9-tztj', 'models/w2v_title.model', quiet=False)
+gdown.download('https://drive.google.com/uc?id=1JQSvj294nlC9lR03C_Nt24S_GQRY6K0W', 'models/w2v_body.model', quiet=False)
+gdown.download('https://drive.google.com/uc?id=1b6K0Ov0ekyeoNMeE__SfRDe-oFL6xAqj', 'models/best_model_name.txt', quiet=False)
 # For fine_tuned_codebert_model, download individual files or a zipped archive
-gdown.download('https://drive.google.com/uc?id=YOUR_CODEBERT_ZIP_ID', 'models/codebert.zip', quiet=False)
+gdown.download('https://drive.google.com/uc?id=1JzsOc7R3Jh7GpBtYQXR9ZcLNCHZhxlrV', 'models/codebert.zip', quiet=False)
 os.system('unzip models/codebert.zip -d models/fine_tuned_codebert_model')
 
 # Load saved models and components
