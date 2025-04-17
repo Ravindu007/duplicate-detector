@@ -1,16 +1,13 @@
 name: Duplicate GitHub Issue Detection
-
 on:
   issues:
     types: [opened]
-
 jobs:
   detect-duplicates:
     runs-on: ubuntu-latest
     permissions:
       issues: write  # Needed to comment on issues
       contents: write  # Needed to commit files
-
     steps:
       # Checkout the repository
       - name: Checkout code
@@ -28,11 +25,29 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libhdf5-dev
 
-      # Install Python dependencies with updated TensorFlow version
+      # Install Python dependencies with updated compatible versions
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pandas==1.5.3 numpy==1.22.4 torch==1.12.1 transformers==4.32.0 sentence-transformers==2.3.0 gensim==4.3.0 scikit-learn==1.2.0 tensorflow==2.15.0 joblib==1.2.0 requests==2.28.1 beautifulsoup4==4.11.1 nltk==3.7 google-auth==2.17.3 google-api-python-client==2.86.0 huggingface_hub==0.15.1 tf-keras==2.15.0 scipy==1.7.3
+          # Install numpy first to meet tensorflow's requirements
+          pip install numpy>=1.23.5
+          # Then install other dependencies
+          pip install pandas>=1.5.3 
+          pip install torch==1.12.1
+          pip install transformers==4.32.0
+          pip install sentence-transformers==2.3.0
+          pip install gensim==4.3.0
+          pip install scikit-learn==1.2.0
+          pip install tensorflow==2.15.0
+          pip install joblib==1.2.0
+          pip install requests==2.28.1
+          pip install beautifulsoup4==4.11.1
+          pip install nltk==3.7
+          pip install google-auth==2.17.3
+          pip install google-api-python-client==2.86.0
+          pip install huggingface_hub==0.15.1
+          pip install tf-keras==2.15.0
+          pip install scipy>=1.7.3
 
       # Debug GOOGLE_CREDENTIALS
       - name: Debug GOOGLE_CREDENTIALS
@@ -65,7 +80,7 @@ jobs:
       - name: Comment on issue
         if: success()
         run: |
-          COMMENT_BODY=$(python -c "import pandas as pd; df = pd.read_csv('duplicate_ranking.csv'); print('Top 5 potential duplicates:\n' + df.head(5)[['issue_number', 'fetched_title', 'hybrid_prob']].to_markdown(index=False))")
+          COMMENT_BODY=$(python -c "import pandas as pd; df = pd.read_csv('duplicate_ranking.csv'); print('Top 5 potential duplicates:\\n' + df.head(5)[['issue_number', 'fetched_title', 'hybrid_prob']].to_markdown(index=False))")
           ISSUE_NUMBER=${{ github.event.issue.number }}
           curl -X POST \
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
