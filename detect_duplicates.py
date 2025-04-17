@@ -28,32 +28,51 @@ nltk.download('punkt_tab')
 os.makedirs('models', exist_ok=True)
 
 # Download models from Google Drive
-gdown.download('https://drive.google.com/uc?id=1dMMRcnWSGn4RtQkKVcExQozi7b3Q9ycZ', 'models/best_traditional_model.h5', quiet=False)
-gdown.download('https://drive.google.com/uc?id=1q5dML2YECAPz07YR5AWe9e2Bv9hU1_Ef', 'models/meta_model.joblib', quiet=False)
-gdown.download('https://drive.google.com/uc?id=1xaa5jGYtLpHZ5cuCZEbRRLO-pBx7Ubir', 'models/scaler.joblib', quiet=False)
-gdown.download('https://drive.google.com/uc?id=1e4l2FaDxl2nSHZVXy8lAwZT71kAbmbT5', 'models/tfidf_title.joblib', quiet=False)
-gdown.download('https://drive.google.com/uc?id=1a9EJsdYADLuSID8UoVHnMlqDcEqmxqoV', 'models/tfidf_body.joblib', quiet=False)
-gdown.download('https://drive.google.com/uc?id=1BFnwOEfVkf6cfQj3ArrizHT0wm9-tztj', 'models/w2v_title.model', quiet=False)
-gdown.download('https://drive.google.com/uc?id=1JQSvj294nlC9lR03C_Nt24S_GQRY6K0W', 'models/w2v_body.model', quiet=False)
-gdown.download('https://drive.google.com/uc?id=1b6K0Ov0ekyeoNMeE__SfRDe-oFL6xAqj', 'models/best_model_name.txt', quiet=False)
-# For fine_tuned_codebert_model, download individual files or a zipped archive
-gdown.download('https://drive.google.com/uc?id=1JzsOc7R3Jh7GpBtYQXR9ZcLNCHZhxlrV', 'models/codebert.zip', quiet=False)
-os.system('unzip models/codebert.zip -d models/fine_tuned_codebert_model')
+model_files = [
+    ('https://drive.google.com/uc?id=1dMMRcnWSGn4RtQkKVcExQozi7b3Q9ycZ', 'models/best_traditional_model.h5'),
+    ('https://drive.google.com/uc?id=1q5dML2YECAPz07YR5AWe9e2Bv9hU1_Ef', 'models/meta_model.joblib'),
+    ('https://drive.google.com/uc?id=1xaa5jGYtLpHZ5cuCZEbRRLO-pBx7Ubir', 'models/scaler.joblib'),
+    ('https://drive.google.com/uc?id=1e4l2FaDxl2nSHZVXy8lAwZT71kAbmbT5', 'models/tfidf_title.joblib'),
+    ('https://drive.google.com/uc?id=1a9EJsdYADLuSID8UoVHnMlqDcEqmxqoV', 'models/tfidf_body.joblib'),
+    ('https://drive.google.com/uc?id=1BFnwOEfVkf6cfQj3ArrizHT0wm9-tztj', 'models/w2v_title.model'),
+    ('https://drive.google.com/uc?id=1JQSvj294nlC9lR03C_Nt24S_GQRY6K0W', 'models/w2v_body.model'),
+    ('https://drive.google.com/uc?id=1b6K0Ov0ekyeoNMeE__SfRDe-oFL6xAqj', 'models/best_model_name.txt'),
+    ('https://drive.google.com/uc?id=1JzsOc7R3Jh7GpBtYQXR9ZcLNCHZhxlrV', 'models/codebert.zip')
+]
+
+for url, output_path in model_files:
+    try:
+        print(f"Downloading {output_path}...")
+        gdown.download(url, output_path, quiet=False)
+    except Exception as e:
+        print(f"Error downloading {output_path}: {e}")
+        exit(1)
+
+# Unzip codebert.zip
+try:
+    print("Unzipping codebert.zip...")
+    os.system('unzip -o models/codebert.zip -d models/fine_tuned_codebert_model')
+except Exception as e:
+    print(f"Error unzipping codebert.zip: {e}")
+    exit(1)
 
 # Load saved models and components
-with open('models/best_model_name.txt', 'r') as f:
-    best_model_name = f.read().strip()
-
-best_traditional_model = tf.keras.models.load_model('models/best_traditional_model.h5')
-meta_model = joblib.load('models/meta_model.joblib')
-scaler = joblib.load('models/scaler.joblib')
-tfidf_title = joblib.load('models/tfidf_title.joblib')
-tfidf_body = joblib.load('models/tfidf_body.joblib')
-w2v_title = Word2Vec.load('models/w2v_title.model')
-w2v_body = Word2Vec.load('models/w2v_body.model')
-sbert_model = SentenceTransformer('all-MiniLM-L6-v2')
-tokenizer = AutoTokenizer.from_pretrained('microsoft/codebert-base')
-codebert_model = AutoModelForSequenceClassification.from_pretrained('models/fine_tuned_codebert_model')
+try:
+    with open('models/best_model_name.txt', 'r') as f:
+        best_model_name = f.read().strip()
+    best_traditional_model = tf.keras.models.load_model('models/best_traditional_model.h5')
+    meta_model = joblib.load('models/meta_model.joblib')
+    scaler = joblib.load('models/scaler.joblib')
+    tfidf_title = joblib.load('models/tfidf_title.joblib')
+    tfidf_body = joblib.load('models/tfidf_body.joblib')
+    w2v_title = Word2Vec.load('models/w2v_title.model')
+    w2v_body = Word2Vec.load('models/w2v_body.model')
+    sbert_model = SentenceTransformer('all-MiniLM-L6-v2')
+    tokenizer = AutoTokenizer.from_pretrained('microsoft/codebert-base')
+    codebert_model = AutoModelForSequenceClassification.from_pretrained('models/fine_tuned_codebert_model')
+except Exception as e:
+    print(f"Error loading models: {e}")
+    exit(1)
 
 # Preprocessing functions
 stop_words = set(stopwords.words('english'))
@@ -161,32 +180,48 @@ for issue in issues:
     })
 
     # Compute features
-    pair_features = compute_features(pair_df)
-    pair_features_scaled = scaler.transform(pair_features)
+    try:
+        pair_features = compute_features(pair_df)
+        pair_features_scaled = scaler.transform(pair_features)
+    except Exception as e:
+        print(f"Error computing features for issue #{issue_number}: {e}")
+        continue
 
     # Predict with best traditional model
-    if best_model_name == 'ANN':
-        traditional_pred_prob = best_traditional_model.predict(pair_features_scaled, verbose=0).flatten()[0]
-    elif best_model_name in ['LSTM', 'RNN']:
-        pair_features_3d = pair_features_scaled.reshape(1, 1, pair_features_scaled.shape[1])
-        traditional_pred_prob = best_traditional_model.predict(pair_features_3d, verbose=0).flatten()[0]
-    elif best_model_name == 'CNN':
-        pair_features_3d = pair_features_scaled.reshape(1, pair_features_scaled.shape[1], 1)
-        traditional_pred_prob = best_traditional_model.predict(pair_features_3d, verbose=0).flatten()[0]
-    else:
-        raise ValueError(f"Unsupported model: {best_model_name}")
+    try:
+        if best_model_name == 'ANN':
+            traditional_pred_prob = best_traditional_model.predict(pair_features_scaled, verbose=0).flatten()[0]
+        elif best_model_name in ['LSTM', 'RNN']:
+            pair_features_3d = pair_features_scaled.reshape(1, 1, pair_features_scaled.shape[1])
+            traditional_pred_prob = best_traditional_model.predict(pair_features_3d, verbose=0).flatten()[0]
+        elif best_model_name == 'CNN':
+            pair_features_3d = pair_features_scaled.reshape(1, pair_features_scaled.shape[1], 1)
+            traditional_pred_prob = best_traditional_model.predict(pair_features_3d, verbose=0).flatten()[0]
+        else:
+            raise ValueError(f"Unsupported model: {best_model_name}")
+    except Exception as e:
+        print(f"Error predicting with traditional model for issue #{issue_number}: {e}")
+        continue
 
     # Predict with CodeBERT
     text = f"[CLS] {new_title_raw} [SEP] {new_body_raw} [SEP] {fetched_title_raw} [SEP] {fetched_body_raw}"
     inputs = tokenizer(text, padding='max_length', truncation=True, max_length=512, return_tensors='pt')
-    with torch.no_grad():
-        outputs = codebert_model(**inputs)
-        logits = outputs.logits
-        pair_codebert_pred_prob = torch.softmax(logits, dim=1)[0, 1].item()
+    try:
+        with torch.no_grad():
+            outputs = codebert_model(**inputs)
+            logits = outputs.logits
+            pair_codebert_pred_prob = torch.softmax(logits, dim=1)[0, 1].item()
+    except Exception as e:
+        print(f"Error predicting with CodeBERT for issue #{issue_number}: {e}")
+        continue
 
     # Combine predictions with meta-model
     hybrid_features = np.array([[traditional_pred_prob, pair_codebert_pred_prob]])
-    hybrid_pred_prob = meta_model.predict_proba(hybrid_features)[:, 1][0]
+    try:
+        hybrid_pred_prob = meta_model.predict_proba(hybrid_features)[:, 1][0]
+    except Exception as e:
+        print(f"Error predicting with meta-model for issue #{issue_number}: {e}")
+        continue
 
     # Store result with issue number
     results.append({
