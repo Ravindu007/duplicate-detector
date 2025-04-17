@@ -21,6 +21,9 @@ from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 
+# Suppress TensorFlow GPU warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # 0 = all logs, 1 = filter info, 2 = filter warnings, 3 = filter errors
+
 # Download necessary NLTK resources
 nltk.download('punkt')
 nltk.download('stopwords')
