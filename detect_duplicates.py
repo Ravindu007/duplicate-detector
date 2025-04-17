@@ -18,6 +18,7 @@ import os
 import json
 import io
 import logging
+import shutil
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
@@ -68,12 +69,12 @@ file_ids = {
     'tfidf_title.joblib': '1LJdAM4Iqu1GQKdXbSMjqXDQ4-OV54irG',
     'tfidf_body.joblib': '1TB0zQpMb6I4l3757H1HFwUs8vjhbMowf',
     'w2v_title.model': '1KrMXzTzvDjZHEh1VyDLgo3mSPu10FRJp',
-    'w2v_body.model': '1E69ZbuMHofOILBgMGXQkr12ciSHLH6eR',
+    'w2v_body.model': '<CORRECT_FILE_ID>',  # Ensure this is the correct ID
     'best_model_name.txt': '1gIUkSGur_B5ZPRsnAqvZyEtj5ru5SV9a',
     'codebert.zip': '1NmtxSf_xSdXOJUZ8i0AfMka2OkqMFVda'
 }
 
-# Download files
+# Download and validate files
 for filename, file_id in file_ids.items():
     try:
         logging.info(f"Downloading {filename}...")
@@ -85,18 +86,35 @@ for filename, file_id in file_ids.items():
             status, done = downloader.next_chunk()
             logging.info(f"Download {int(status.progress() * 100)}%")
         fh.close()
+        # Validate file size
+        file_size = os.path.getsize(f'models/{filename}')
+        if file_size == 0:
+            raise ValueError(f"Downloaded file {filename} is empty")
+        logging.info(f"Downloaded {filename} successfully, size: {file_size} bytes")
     except Exception as e:
         logging.error(f"Error downloading {filename}: {e}")
         exit(1)
 
-# Unzip codebert.zip
+# Unzip codebert.zip and adjust directory structure
 try:
     logging.info("Unzipping codebert.zip...")
     os.system('unzip -o models/codebert.zip -d models/fine_tuned_codebert_model')
     if not os.path.exists('models/fine_tuned_codebert_model'):
         raise FileNotFoundError("Failed to unzip fine_tuned_codebert_model")
+    # Move files from codebert subdirectory to fine_tuned_codebert_model
+    codebert_subdir = os.path.join('models', 'fine_tuned_codebert_model', 'codebert')
+    if os.path.exists(codebert_subdir):
+        for file_name in os.listdir(codebert_subdir):
+            src_path = os.path.join(codebert_subdir, file_name)
+            dst_path = os.path.join('models', 'fine_tuned_codebert_model', file_name)
+            shutil.move(src_path, dst_path)
+        # Remove the empty codebert subdirectory
+        os.rmdir(codebert_subdir)
+    # Verify config.json exists
+    if not os.path.exists('models/fine_tuned_codebert_model/config.json'):
+        raise FileNotFoundError("config.json not found in models/fine_tuned_codebert_model")
 except Exception as e:
-    logging.error(f"Error unzipping codebert.zip: {e}")
+    logging.error(f"Error unzipping codebert.zip or adjusting directory: {e}")
     exit(1)
 
 # Load saved models and components
@@ -115,6 +133,7 @@ try:
     w2v_body = Word2Vec.load('models/w2v_body.model')
     sbert_model = SentenceTransformer('all-MiniLM-L6-v2')
     tokenizer = AutoTokenizer.from_pretrained('microsoft/codebert-base')
+    logging.info("Loading fine-tuned CodeBERT model...")
     codebert_model = AutoModelForSequenceClassification.from_pretrained('models/fine_tuned_codebert_model')
 except Exception as e:
     logging.error(f"Error loading models: {e}")
