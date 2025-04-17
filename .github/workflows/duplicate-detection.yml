@@ -1,13 +1,16 @@
 name: Duplicate GitHub Issue Detection
+
 on:
   issues:
     types: [opened]
+
 jobs:
   detect-duplicates:
     runs-on: ubuntu-latest
     permissions:
       issues: write  # Needed to comment on issues
       contents: write  # Needed to commit files
+
     steps:
       # Checkout the repository
       - name: Checkout code
@@ -25,69 +28,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libhdf5-dev
 
-      # Install Python dependencies with compatible TensorFlow version
+      # Install Python dependencies
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          # Install numpy first with version compatible with TF 2.10.0
-          pip install numpy==1.23.5
-          # Install protobuf first to ensure compatibility
-          pip install protobuf==3.20.0
-          # Install older version of TensorFlow (2.10.0) which is likely compatible with the saved model
-          pip install tensorflow==2.10.0
-          # Then install other dependencies
-          pip install pandas>=1.5.3 
-          pip install torch==1.12.1
-          pip install transformers==4.32.0
-          pip install sentence-transformers==2.3.0
-          pip install gensim==4.3.0
-          pip install scikit-learn==1.2.0
-          pip install joblib==1.2.0
-          pip install requests==2.28.1
-          pip install beautifulsoup4==4.11.1
-          pip install nltk==3.7
-          pip install google-auth==2.17.3
-          pip install google-api-python-client==2.86.0
-          pip install huggingface_hub==0.15.1
-          # No need for tf-keras when using TF 2.10.0 as Keras is integrated
-          pip install scipy>=1.7.3
-
-      # Create and patch the detection script with error handling
-      - name: Patch detect_duplicates.py
-        run: |
-          cat > model_loader.py << 'EOF'
-          import tensorflow as tf
-          
-          def load_model_safely(model_path):
-              """Load a TensorFlow model with fallback error handling"""
-              try:
-                  # First try loading normally
-                  return tf.keras.models.load_model(model_path)
-              except Exception as e:
-                  print(f"Standard model loading failed: {e}")
-                  print("Attempting to load with custom options...")
-                  try:
-                      # Try with compile=False option
-                      return tf.keras.models.load_model(model_path, compile=False)
-                  except Exception as e2:
-                      print(f"Loading with compile=False failed: {e2}")
-                      try:
-                          # Try loading with direct optimizer specification
-                          return tf.keras.models.load_model(
-                              model_path, 
-                              custom_objects={'optimizer': tf.keras.optimizers.Adam()}
-                          )
-                      except Exception as e3:
-                          print(f"Loading with custom_objects failed: {e3}")
-                          # If all attempts fail, raise the original error
-                          raise e
-          EOF
-          
-          # Insert the import statement at the beginning of the detection script
-          sed -i '1s/^/from model_loader import load_model_safely\n/' detect_duplicates.py
-          
-          # Replace the model loading line with our safer version
-          sed -i 's/best_traditional_model = tf.keras.models.load_model(.*/best_traditional_model = load_model_safely("models\/best_traditional_model.h5")/' detect_duplicates.py
+          pip install pandas==1.5.3 numpy==1.22.4 torch==1.12.1 transformers==4.32.0 sentence-transformers==2.3.0 gensim==4.3.0 scikit-learn==1.2.0 tensorflow==2.15.0 joblib==1.2.0 requests==2.28.1 beautifulsoup4==4.11.1 nltk==3.7 google-auth==2.17.3 google-api-python-client==2.86.0 huggingface_hub==0.15.1 tf-keras==2.15.0 scipy==1.7.3
 
       # Debug GOOGLE_CREDENTIALS
       - name: Debug GOOGLE_CREDENTIALS
@@ -120,7 +65,7 @@ jobs:
       - name: Comment on issue
         if: success()
         run: |
-          COMMENT_BODY=$(python -c "import pandas as pd; df = pd.read_csv('duplicate_ranking.csv'); print('Top 5 potential duplicates:\\n' + df.head(5)[['issue_number', 'fetched_title', 'hybrid_prob']].to_markdown(index=False))") 
+          COMMENT_BODY=$(python -c "import pandas as pd; df = pd.read_csv('duplicate_ranking.csv'); print('Top 5 potential duplicates:\\n' + df.head(5)[['issue_number', 'fetched_title', 'hybrid_prob']].to_markdown(index=False))")
           ISSUE_NUMBER=${{ github.event.issue.number }}
           curl -X POST \
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
@@ -128,7 +73,7 @@ jobs:
             https://api.github.com/repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments \
             -d "{\"body\": \"$COMMENT_BODY\"}"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GOOGLE_CREDENTIALS }}
 
       # Upload the output CSV as an artifact
       - name: Upload duplicate_ranking.csv
