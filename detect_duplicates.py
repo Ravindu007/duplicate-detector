@@ -16,7 +16,10 @@ from nltk.stem import WordNetLemmatizer
 import nltk
 import os
 import json
-import gdown
+import io
+from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
 
 # Download necessary NLTK resources
 nltk.download('punkt')
@@ -27,27 +30,42 @@ nltk.download('punkt_tab')
 # Create directory for models
 os.makedirs('models', exist_ok=True)
 
-# Download models from Google Drive
-model_files = [
-    ('https://drive.google.com/uc?id=1dMMRcnWSGn4RtQkKVcExQozi7b3Q9ycZ', 'models/best_traditional_model.h5'),
-    ('https://drive.google.com/uc?id=1q5dML2YECAPz07YR5AWe9e2Bv9hU1_Ef', 'models/meta_model.joblib'),
-    ('https://drive.google.com/uc?id=1xaa5jGYtLpHZ5cuCZEbRRLO-pBx7Ubir', 'models/scaler.joblib'),
-    ('https://drive.google.com/uc?id=1e4l2FaDxl2nSHZVXy8lAwZT71kAbmbT5', 'models/tfidf_title.joblib'),
-    ('https://drive.google.com/uc?id=1a9EJsdYADLuSID8UoVHnMlqDcEqmxqoV', 'models/tfidf_body.joblib'),
-    ('https://drive.google.com/uc?id=1BFnwOEfVkf6cfQj3ArrizHT0wm9-tztj', 'models/w2v_title.model'),
-    ('https://drive.google.com/uc?id=1JQSvj294nlC9lR03C_Nt24S_GQRY6K0W', 'models/w2v_body.model'),
-    ('https://drive.google.com/uc?id=1b6K0Ov0ekyeoNMeE__SfRDe-oFL6xAqj', 'models/best_model_name.txt'),
-    ('https://drive.google.com/uc?id=1JzsOc7R3Jh7GpBtYQXR9ZcLNCHZhxlrV', 'models/codebert.zip')
-]
+# Load Google Service Account credentials from environment variable
+credentials_json = os.environ['GOOGLE_CREDENTIALS']
+with open('credentials.json', 'w') as f:
+    f.write(credentials_json)
 
-for url, output_path in model_files:
+# Authenticate with Google Drive API
+creds = Credentials.from_service_account_file('credentials.json')
+drive_service = build('drive', 'v3', credentials=creds)
+
+# File IDs (from your provided list)
+file_ids = {
+    'best_traditional_model.h5': '1dMMRcnWSGn4RtQkKVcExQozi7b3Q9ycZ',
+    'meta_model.joblib': '1q5dML2YECAPz07YR5AWe9e2Bv9hU1_Ef',
+    'scaler.joblib': '1xaa5jGYtLpHZ5cuCZEbRRLO-pBx7Ubir',
+    'tfidf_title.joblib': '1e4l2FaDxl2nSHZVXy8lAwZT71kAbmbT5',
+    'tfidf_body.joblib': '1a9EJsdYADLuSID8UoVHnMlqDcEqmxqoV',
+    'w2v_title.model': '1BFnwOEfVkf6cfQj3ArrizHT0wm9-tztj',
+    'w2v_body.model': '1JQSvj294nlC9lR03C_Nt24S_GQRY6K0W',
+    'best_model_name.txt': '1b6K0Ov0ekyeoNMeE__SfRDe-oFL6xAqj',
+    'codebert.zip': '1JzsOc7R3Jh7GpBtYQXR9ZcLNCHZhxlrV'
+}
+
+# Download files using Google Drive API
+for filename, file_id in file_ids.items():
     try:
-        print(f"Downloading {output_path}...")
-        gdown.download(url, output_path, quiet=False)
-        if not os.path.exists(output_path):
-            raise FileNotFoundError(f"File {output_path} not found after download attempt")
+        print(f"Downloading {filename}...")
+        request = drive_service.files().get_media(fileId=file_id)
+        fh = io.FileIO(f'models/{filename}', 'wb')
+        downloader = MediaIoBaseDownload(fh, request)
+        done = False
+        while done is False:
+            status, done = downloader.next_chunk()
+            print(f"Download {int(status.progress() * 100)}%")
+        fh.close()
     except Exception as e:
-        print(f"Error downloading {output_path}: {e}")
+        print(f"Error downloading {filename}: {e}")
         exit(1)
 
 # Unzip codebert.zip
@@ -119,6 +137,46 @@ try:
 except requests.RequestException as e:
     print(f"Error fetching issues: {e}")
     exit(1)
+
+# Function to compute features for a pair
+def compute_features(pair_df):
+    features = []
+    for _, row in pair_df.iterrows():
+        tfidf_t1 = tfidf_title.transform([row['Original Issue Title_clean']]).toarray()
+        tfidf_t2 = tfidf_title.transform([row['Duplicate Issue Title_clean']]).toarray()
+        tfidf_b1 = tfidf_body.transform([row['Original Issue Body_clean']]).toarray()
+        tfidf_b2 = tfidf_body.transform([row['Duplicate Issue Body_clean']]).toarray()
+        tfidf_title_sim = cosine_similarity(tfidf_t1, tfidf_t2)[0][0]
+        tfidf_body_sim = cosine_similarity(tfidf_b1, tfidf_b2)[0][0]
+
+        w2v_t1 = get_w2v_embedding(row['Original Issue Title_clean'].split(), w2v_title)
+        w2v_t2 = get_w2v_embedding(row['Duplicate Issue Title_clean'].split(), w2v_title)
+        w2v_b1 = get_w2v_embedding(row['Original Issue Body_clean'].split(), w2v_body)
+        w2v_b2 = get_w2v_embedding(row['Duplicate Issue Body_clean'].split(), w2v_body)
+        w2v_title_sim = cosine_similarity([w2v_t1], [w2v_t2])[0][0] if np.any(w2v_t1) and np.any(w2v_t2) else 0
+        w2v_body_sim = cosine_similarity([w2v_b1], [w2v_b2])[0][0] if np.any(w2v_b1) and np.any(w2v_b2) else 0
+
+        sbert_t1 = sbert_model.encode(row['Original Issue Title_clean'])
+        sbert_t2 = sbert_model.encode(row['Duplicate Issue Title_clean'])
+        sbert_b1 = sbert_model.encode(row['Original Issue Body_clean'])
+        sbert_b2 = sbert_model.encode(row['Duplicate Issue Body_clean'])
+        sbert_title_sim = cosine_similarity([sbert_t1], [sbert_t2])[0][0]
+        sbert_body_sim = cosine_similarity([sbert_b1], [sbert_b2])[0][0]
+
+        t1_tokens = set(row['Original Issue Title_clean'].split())
+        t2_tokens = set(row['Duplicate Issue Title_clean'].split())
+        b1_tokens = set(row['Original Issue Body_clean'].split())
+        b2_tokens = set(row['Duplicate Issue Body_clean'].split())
+        title_overlap = len(t1_tokens & t2_tokens) / len(t1_tokens | t2_tokens) if t1_tokens or t2_tokens else 0
+        body_overlap = len(b1_tokens & b2_tokens) / len(b1_tokens | b2_tokens) if b1_tokens or b2_tokens else 0
+
+        features.append([tfidf_title_sim, tfidf_body_sim, w2v_title_sim, w2v_body_sim,
+                         sbert_title_sim, sbert_body_sim, title_overlap, body_overlap])
+    return np.array(features)
+
+def get_w2v_embedding(tokens, model):
+    vectors = [model.wv[token] for token in tokens if token in model.wv]
+    return np.mean(vectors, axis=0) if vectors else np.zeros(100)
 
 # Process each fetched issue
 results = []
