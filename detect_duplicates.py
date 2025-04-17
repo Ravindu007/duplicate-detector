@@ -34,12 +34,28 @@ nltk.download('punkt_tab')
 os.makedirs('models', exist_ok=True)
 
 # Load Google Service Account credentials from environment variable
-credentials_json = os.environ['GOOGLE_CREDENTIALS']
+credentials_json = os.environ.get('GOOGLE_CREDENTIALS')
+if not credentials_json:
+    print("Error: GOOGLE_CREDENTIALS environment variable is not set or empty")
+    exit(1)
+
+try:
+    # Validate JSON format
+    json.loads(credentials_json)
+except json.JSONDecodeError as e:
+    print(f"Error: GOOGLE_CREDENTIALS contains invalid JSON: {e}")
+    exit(1)
+
 with open('credentials.json', 'w') as f:
     f.write(credentials_json)
 
 # Authenticate with Google Drive API
-creds = Credentials.from_service_account_file('credentials.json')
+try:
+    creds = Credentials.from_service_account_file('credentials.json')
+except Exception as e:
+    print(f"Error loading Google Service Account credentials: {e}")
+    exit(1)
+
 drive_service = build('drive', 'v3', credentials=creds)
 
 # File IDs (from your provided list)
